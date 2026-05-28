@@ -9,6 +9,14 @@
 
 [Termux](https://termux.dev) is an Android terminal application and Linux environment.
 
+### Custom Fork Features
+This custom fork of Termux adds several enhancements to the terminal experience:
+
+- **Arabic & BiDi Rendering Support:** Complete bidirectional text rendering (BiDi) and Arabic script shaping support in the terminal view. It automatically detects text direction (LTR/RTL) line-by-line based on the starting character, ensuring that mixed Arabic and English command outputs layout and render correctly.
+- **Kawkab Mono Monospace Font:** Bundles the **Kawkab Mono** monospace font as the default fallback, offering clean, connected Arabic glyphs alongside Source Code Pro for English characters.
+- **Ubuntu Terminal Theme:** A built-in terminal theme option under preferences to change the terminal appearance to Ubuntu colors (dark purple background `#300A24`, white text, and white cursor).
+- **Text Selection & Cursor Mapping:** Fixed cursor positioning and text selection handle offsets to align perfectly with the visually reordered RTL characters.
+
 Note that this repository is for the app itself (the user interface and the terminal emulation). For the packages installable inside the app, see [termux/termux-packages](https://github.com/termux/termux-packages).
 
 Quick how-to about Termux package management is available at [Package Management](https://github.com/termux/termux-packages/wiki/Package-Management). It also has info on how to fix **`repository is under maintenance or down`** errors when running `apt` or `pkg` commands.

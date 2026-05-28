@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="terminal_theme_entries">
+        <item>Default (Black)</item>
+        <item>Ubuntu (Dark Purple)</item>
+    </string-array>
+    <string-array name="terminal_theme_values">
+        <item>default</item>
+        <item>ubuntu</item>
+    </string-array>
+</resources>

@@ -40,6 +40,9 @@ import androidx.annotation.RequiresApi;
 import com.termux.terminal.KeyHandler;
 import com.termux.terminal.TerminalEmulator;
 import com.termux.terminal.TerminalSession;
+import com.termux.terminal.TerminalBuffer;
+import com.termux.terminal.TerminalRow;
+import com.termux.terminal.WcWidth;
 import com.termux.view.textselection.TextSelectionCursorController;
 
 /** View displaying and interacting with a {@link TerminalSession}. */
@@ -546,8 +549,10 @@ public final class TerminalView extends View {
     public int[] getColumnAndRow(MotionEvent event, boolean relativeToScroll) {
         int column = (int) (event.getX() / mRenderer.mFontWidth);
         int row = (int) ((event.getY() - mRenderer.mFontLineSpacingAndAscent) / mRenderer.mFontLineSpacing);
+        int externalRow = row + mTopRow;
+        column = getLogicalColumn(externalRow, column);
         if (relativeToScroll) {
-            row += mTopRow;
+            row = externalRow;
         }
         return new int[] { column, row };
     }
@@ -986,7 +991,6 @@ public final class TerminalView extends View {
         int viewHeight = getHeight();
         if (viewWidth == 0 || viewHeight == 0 || mTermSession == null) return;
 
-        // Set to 80 and 24 if you want to enable vttest.
         int newColumns = Math.max(4, (int) (viewWidth / mRenderer.mFontWidth));
         int newRows = Math.max(4, (viewHeight - mRenderer.mFontLineSpacingAndAscent) / mRenderer.mFontLineSpacing);
 
@@ -1048,6 +1052,148 @@ public final class TerminalView extends View {
 
     public int getPointY(int cy) {
         return Math.round((cy - mTopRow) * mRenderer.mFontLineSpacing);
+    }
+
+    public int getLogicalColumn(int externalRow, int visCol) {
+        if (mEmulator == null) return visCol;
+        if (visCol <= 0) return 0;
+        if (visCol >= mEmulator.mColumns) return mEmulator.mColumns;
+        TerminalBuffer screen = mEmulator.getScreen();
+        if (screen == null) return visCol;
+        int internalRow = screen.externalToInternalRow(externalRow);
+        if (internalRow < 0 || internalRow >= screen.getActiveRows()) return visCol;
+        TerminalRow lineObject = screen.allocateFullLineIfNecessary(internalRow);
+        if (lineObject == null) return visCol;
+        char[] lineText = lineObject.mText;
+        int charsUsedInLine = lineObject.getSpaceUsed();
+        if (!ArabicRendererHelper.hasArabic(lineText, 0, charsUsedInLine)) {
+            return visCol;
+        }
+
+        // Fetch boundary characters for connectivity
+        char prevChar = ArabicRendererHelper.getPrevChar(screen, externalRow);
+        char nextChar = ArabicRendererHelper.getNextChar(screen, externalRow, lineObject);
+
+        // Generate maps
+        ArabicRendererHelper.LineResult arabicResult = ArabicRendererHelper.reshapeAndReorder(lineText, charsUsedInLine, prevChar, nextChar);
+        if (arabicResult == null) return visCol;
+
+        // Build char to column map
+        int[] charToColMap = new int[lineText.length];
+        int currentChar = 0;
+        int currentColumn = 0;
+        while (currentChar < lineText.length) {
+            charToColMap[currentChar] = currentColumn;
+            char c = lineText[currentChar++];
+            boolean isHigh = Character.isHighSurrogate(c) && (currentChar < lineText.length);
+            int codePoint = c;
+            if (isHigh) {
+                charToColMap[currentChar] = currentColumn; // map the low surrogate
+                codePoint = Character.toCodePoint(c, lineText[currentChar++]);
+            }
+            int wcwidth = WcWidth.width(codePoint);
+            if (wcwidth > 0) {
+                currentColumn += wcwidth;
+            }
+        }
+
+        // Map visual column to visual character index
+        int visualCharIndex = 0;
+        int currentVisCol = 0;
+        char[] visualText = arabicResult.text;
+        while (visualCharIndex < visualText.length && currentVisCol <= visCol) {
+            char c = visualText[visualCharIndex];
+            boolean isHigh = Character.isHighSurrogate(c) && (visualCharIndex + 1 < visualText.length);
+            int codePoint = isHigh ? Character.toCodePoint(c, visualText[visualCharIndex + 1]) : c;
+            int wcwidth = WcWidth.width(codePoint);
+            int nextVisCharIndex = visualCharIndex + (isHigh ? 2 : 1);
+            while (nextVisCharIndex < visualText.length && WcWidth.width(visualText, nextVisCharIndex) <= 0) {
+                nextVisCharIndex += (Character.isHighSurrogate(visualText[nextVisCharIndex]) && (nextVisCharIndex + 1 < visualText.length)) ? 2 : 1;
+            }
+            int step = wcwidth > 0 ? wcwidth : 1;
+            if (currentVisCol <= visCol && visCol < currentVisCol + step) {
+                int logCharIndex = arabicResult.visualToLogicalMap[visualCharIndex];
+                if (logCharIndex >= 0 && logCharIndex < charToColMap.length) {
+                    return charToColMap[logCharIndex];
+                }
+                break;
+            }
+            currentVisCol += step;
+            visualCharIndex = nextVisCharIndex;
+        }
+
+        return visCol;
+    }
+
+    public int getVisualColumn(int externalRow, int logCol) {
+        if (mEmulator == null) return logCol;
+        if (logCol <= 0) return 0;
+        if (logCol >= mEmulator.mColumns) return mEmulator.mColumns;
+        TerminalBuffer screen = mEmulator.getScreen();
+        if (screen == null) return logCol;
+        int internalRow = screen.externalToInternalRow(externalRow);
+        if (internalRow < 0 || internalRow >= screen.getActiveRows()) return logCol;
+        TerminalRow lineObject = screen.allocateFullLineIfNecessary(internalRow);
+        if (lineObject == null) return logCol;
+        char[] lineText = lineObject.mText;
+        int charsUsedInLine = lineObject.getSpaceUsed();
+        if (!ArabicRendererHelper.hasArabic(lineText, 0, charsUsedInLine)) {
+            return logCol;
+        }
+
+        // Fetch boundary characters for connectivity
+        char prevChar = ArabicRendererHelper.getPrevChar(screen, externalRow);
+        char nextChar = ArabicRendererHelper.getNextChar(screen, externalRow, lineObject);
+
+        // Generate maps
+        ArabicRendererHelper.LineResult arabicResult = ArabicRendererHelper.reshapeAndReorder(lineText, charsUsedInLine, prevChar, nextChar);
+        if (arabicResult == null) return logCol;
+
+        // Build char to column map
+        int[] charToColMap = new int[lineText.length];
+        int currentChar = 0;
+        int currentColumn = 0;
+        while (currentChar < lineText.length) {
+            charToColMap[currentChar] = currentColumn;
+            char c = lineText[currentChar++];
+            boolean isHigh = Character.isHighSurrogate(c) && (currentChar < lineText.length);
+            int codePoint = c;
+            if (isHigh) {
+                charToColMap[currentChar] = currentColumn; // map the low surrogate
+                codePoint = Character.toCodePoint(c, lineText[currentChar++]);
+            }
+            int wcwidth = WcWidth.width(codePoint);
+            if (wcwidth > 0) {
+                currentColumn += wcwidth;
+            }
+        }
+
+        // Iterate over all possible visual columns to find which one maps to logCol
+        int visualCharIndex = 0;
+        int currentVisCol = 0;
+        char[] visualText = arabicResult.text;
+        while (visualCharIndex < visualText.length) {
+            char c = visualText[visualCharIndex];
+            boolean isHigh = Character.isHighSurrogate(c) && (visualCharIndex + 1 < visualText.length);
+            int codePoint = isHigh ? Character.toCodePoint(c, visualText[visualCharIndex + 1]) : c;
+            int wcwidth = WcWidth.width(codePoint);
+            int nextVisCharIndex = visualCharIndex + (isHigh ? 2 : 1);
+            while (nextVisCharIndex < visualText.length && WcWidth.width(visualText, nextVisCharIndex) <= 0) {
+                nextVisCharIndex += (Character.isHighSurrogate(visualText[nextVisCharIndex]) && (nextVisCharIndex + 1 < visualText.length)) ? 2 : 1;
+            }
+            int step = wcwidth > 0 ? wcwidth : 1;
+            int logCharIndex = arabicResult.visualToLogicalMap[visualCharIndex];
+            if (logCharIndex >= 0 && logCharIndex < charToColMap.length) {
+                int mappedLogCol = charToColMap[logCharIndex];
+                if (mappedLogCol == logCol || (wcwidth == 2 && mappedLogCol == logCol - 1)) {
+                    return currentVisCol;
+                }
+            }
+            currentVisCol += step;
+            visualCharIndex = nextVisCharIndex;
+        }
+
+        return logCol;
     }
 
     public int getTopRow() {

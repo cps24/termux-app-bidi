@@ -92,6 +92,14 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_MARGIN_ADJUSTMENT, value, false);
     }
 
+    public String getTerminalTheme() {
+        return SharedPreferenceUtils.getString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_THEME, TERMUX_APP.DEFAULT_TERMINAL_THEME, true);
+    }
+
+    public void setTerminalTheme(String value) {
+        SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_TERMINAL_THEME, value, false);
+    }
+
 
 
     public boolean isSoftKeyboardEnabled() {

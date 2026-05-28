@@ -10,6 +10,14 @@
             app:summaryOn="@string/termux_terminal_view_terminal_margin_adjustment_on"
             app:title="@string/termux_terminal_view_terminal_margin_adjustment_title" />
 
+        <ListPreference
+            app:key="terminal_theme"
+            app:title="@string/termux_terminal_view_terminal_theme_title"
+            app:summary="@string/termux_terminal_view_terminal_theme_summary"
+            app:entries="@array/terminal_theme_entries"
+            app:entryValues="@array/terminal_theme_values"
+            app:defaultValue="default" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

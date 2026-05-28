@@ -74,4 +74,30 @@ class TerminalViewPreferencesDataStore extends PreferenceDataStore {
         }
     }
 
+    @Override
+    public void putString(String key, String value) {
+        if (mPreferences == null) return;
+        if (key == null) return;
+
+        switch (key) {
+            case "terminal_theme":
+                mPreferences.setTerminalTheme(value);
+                break;
+            default:
+                break;
+        }
+    }
+
+    @Override
+    public String getString(String key, String defValue) {
+        if (mPreferences == null) return null;
+
+        switch (key) {
+            case "terminal_theme":
+                return mPreferences.getTerminalTheme();
+            default:
+                return null;
+        }
+    }
+
 }

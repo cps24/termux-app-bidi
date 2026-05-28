@@ -81,8 +81,39 @@ public final class TerminalRenderer {
             }
 
             TerminalRow lineObject = screen.allocateFullLineIfNecessary(screen.externalToInternalRow(row));
-            final char[] line = lineObject.mText;
-            final int charsUsedInLine = lineObject.getSpaceUsed();
+            char[] line = lineObject.mText;
+            int charsUsedInLine = lineObject.getSpaceUsed();
+
+            boolean hasArabic = ArabicRendererHelper.hasArabic(line, 0, charsUsedInLine);
+            ArabicRendererHelper.LineResult arabicResult = null;
+            int[] charToColMap = null;
+            if (hasArabic) {
+                char prevChar = ArabicRendererHelper.getPrevChar(screen, row);
+                char nextChar = ArabicRendererHelper.getNextChar(screen, row, lineObject);
+                arabicResult = ArabicRendererHelper.reshapeAndReorder(line, charsUsedInLine, prevChar, nextChar);
+                line = arabicResult.text;
+                charsUsedInLine = line.length;
+
+                // Build char to column map
+                char[] origLine = lineObject.mText;
+                charToColMap = new int[origLine.length];
+                int currentChar = 0;
+                int currentColumn = 0;
+                while (currentChar < origLine.length) {
+                    charToColMap[currentChar] = currentColumn;
+                    char c = origLine[currentChar++];
+                    boolean isHigh = Character.isHighSurrogate(c) && (currentChar < origLine.length);
+                    int codePoint = c;
+                    if (isHigh) {
+                        charToColMap[currentChar] = currentColumn; // map the low surrogate
+                        codePoint = Character.toCodePoint(c, origLine[currentChar++]);
+                    }
+                    int wcwidth = WcWidth.width(codePoint);
+                    if (wcwidth > 0) {
+                        currentColumn += wcwidth;
+                    }
+                }
+            }
 
             long lastRunStyle = 0;
             boolean lastRunInsideCursor = false;
@@ -94,14 +125,25 @@ public final class TerminalRenderer {
             float measuredWidthForRun = 0.f;
 
             for (int column = 0; column < columns; ) {
+                final int logicalColumn;
+                if (hasArabic) {
+                    int logCharIndex = arabicResult.visualToLogicalMap[currentCharIndex];
+                    if (logCharIndex >= 0 && logCharIndex < charToColMap.length) {
+                        logicalColumn = charToColMap[logCharIndex];
+                    } else {
+                        logicalColumn = column;
+                    }
+                } else {
+                    logicalColumn = column;
+                }
                 final char charAtIndex = line[currentCharIndex];
                 final boolean charIsHighsurrogate = Character.isHighSurrogate(charAtIndex);
                 final int charsForCodePoint = charIsHighsurrogate ? 2 : 1;
                 final int codePoint = charIsHighsurrogate ? Character.toCodePoint(charAtIndex, line[currentCharIndex + 1]) : charAtIndex;
                 final int codePointWcWidth = WcWidth.width(codePoint);
-                final boolean insideCursor = (cursorX == column || (codePointWcWidth == 2 && cursorX == column + 1));
-                final boolean insideSelection = column >= selx1 && column <= selx2;
-                final long style = lineObject.getStyle(column);
+                final boolean insideCursor = (cursorX == logicalColumn || (codePointWcWidth == 2 && cursorX == logicalColumn + 1));
+                final boolean insideSelection = logicalColumn >= selx1 && logicalColumn <= selx2;
+                final long style = lineObject.getStyle(logicalColumn);
 
                 // Check if the measured text width for this code point is not the same as that expected by wcwidth().
                 // This could happen for some fonts which are not truly monospace, or for more exotic characters such as
@@ -111,7 +153,7 @@ public final class TerminalRenderer {
                     currentCharIndex, charsForCodePoint);
                 final boolean fontWidthMismatch = Math.abs(measuredCodePointWidth / mFontWidth - codePointWcWidth) > 0.01;
 
-                if (style != lastRunStyle || insideCursor != lastRunInsideCursor || insideSelection != lastRunInsideSelection || fontWidthMismatch || lastRunFontWidthMismatch) {
+                if (style != lastRunStyle || insideCursor != lastRunInsideCursor || insideSelection != lastRunInsideSelection || fontWidthMismatch || lastRunFontWidthMismatch || hasArabic) {
                     if (column == 0) {
                         // Skip first column as there is nothing to draw, just record the current style.
                     } else {

@@ -235,4 +235,7 @@
     <!-- Donate Preference -->
     <string name="donate_preference_title">Donate</string>
 
+    <string name="termux_terminal_view_terminal_theme_title">Terminal Theme</string>
+    <string name="termux_terminal_view_terminal_theme_summary">Choose the color theme for the terminal</string>
+
 </resources>

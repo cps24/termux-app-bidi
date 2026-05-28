@@ -154,7 +154,8 @@ public class TextSelectionHandleView extends View {
     }
 
     public void positionAtCursor(final int cx, final int cy, boolean forceOrientationCheck) {
-        int x = terminalView.getPointX(cx);
+        int visualColumn = terminalView.getVisualColumn(cy, cx);
+        int x = terminalView.getPointX(visualColumn);
         int y = terminalView.getPointY(cy + 1);
         moveTo(x, y, forceOrientationCheck);
     }

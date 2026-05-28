@@ -497,6 +497,16 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             File fontFile = TermuxConstants.TERMUX_FONT_FILE;
 
             final Properties props = new Properties();
+
+            com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences preferences = com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences.build(mActivity);
+            String theme = (preferences != null) ? preferences.getTerminalTheme() : "default";
+
+            if ("ubuntu".equals(theme)) {
+                props.setProperty("background", "#300A24");
+                props.setProperty("foreground", "#FFFFFF");
+                props.setProperty("cursor", "#FFFFFF");
+            }
+
             if (colorsFile.isFile()) {
                 try (InputStream in = new FileInputStream(colorsFile)) {
                     props.load(in);
@@ -510,7 +520,16 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             }
             updateBackgroundColor();
 
-            final Typeface newTypeface = (fontFile.exists() && fontFile.length() > 0) ? Typeface.createFromFile(fontFile) : Typeface.MONOSPACE;
+            Typeface newTypeface;
+            if (fontFile.exists() && fontFile.length() > 0) {
+                newTypeface = Typeface.createFromFile(fontFile);
+            } else {
+                try {
+                    newTypeface = Typeface.createFromAsset(mActivity.getAssets(), "KawkabMono-Regular.ttf");
+                } catch (Exception e) {
+                    newTypeface = Typeface.MONOSPACE;
+                }
+            }
             mActivity.getTerminalView().setTypeface(newTypeface);
         } catch (Exception e) {
             Logger.logStackTraceWithMessage(LOG_TAG, "Error in checkForFontAndColors()", e);

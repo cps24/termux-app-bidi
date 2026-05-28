@@ -95,6 +95,8 @@ public final class TermuxPreferenceConstants {
         public static final String KEY_TERMINAL_MARGIN_ADJUSTMENT =  "terminal_margin_adjustment";
         public static final boolean DEFAULT_TERMINAL_MARGIN_ADJUSTMENT = true;
 
+        public static final String KEY_TERMINAL_THEME = "terminal_theme";
+        public static final String DEFAULT_TERMINAL_THEME = "default";
 
         /**
          * Defines the key for whether to show terminal toolbar containing extra keys and text input field.

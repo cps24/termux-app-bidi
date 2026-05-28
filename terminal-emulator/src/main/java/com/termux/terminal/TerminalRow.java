@@ -44,7 +44,7 @@ public final class TerminalRow {
     /** The number of java chars used in {@link #mText}. */
     private short mSpaceUsed;
     /** If this row has been line wrapped due to text output at the end of line. */
-    boolean mLineWrap;
+    public boolean mLineWrap;
     /** The style bits of each cell in the row. See {@link TextStyle}. */
     final long[] mStyle;
     /** If this row might contain chars with width != 1, used for deactivating fast path */
